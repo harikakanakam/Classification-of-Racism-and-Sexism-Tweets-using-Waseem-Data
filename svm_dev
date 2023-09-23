@@ -1,0 +1,65 @@
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import Pipeline
+from sklearn.svm import SVC
+from sklearn.model_selection import GridSearchCV
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+import string
+
+# Preprocessing Function
+def preprocess_text(text):
+    # Lowercase the text
+    text = text.lower()
+    # Remove Punctuation
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    # Tokenize the text
+    tokens = word_tokenize(text)
+    # Remove Stopwords
+    stop_words = set(stopwords.words('english'))
+    filtered_tokens = [token for token in tokens if token not in stop_words]
+    # Lemmatize the tokens
+    lemmatizer = WordNetLemmatizer()
+    lemmatized_tokens = [lemmatizer.lemmatize(token) for token in filtered_tokens]
+    # Join the tokens back to a single string
+    processed_text = ' '.join(lemmatized_tokens)
+    return processed_text
+
+with open('waseem/waseemtrain.txt', 'r', encoding='utf-8') as file:
+    lines = file.read().split('\n')
+    
+train_data = pd.DataFrame({'text': lines})
+
+train_labels = pd.read_csv('waseem/waseemtrainGold.txt', header=None, names=['target'])
+
+# Preprocess the training data
+train_data['text'] = train_data['text'].apply(preprocess_text)
+
+# Define the Pipeline
+pipeline = Pipeline([
+    ('vect', TfidfVectorizer()),
+    ('clf', SVC())
+])
+
+# Define the parameters for the grid search
+parameters = {
+    'vect__max_df': (0.5, 0.75, 1.0),
+    'vect__ngram_range': ((1, 1), (1, 2), (2, 2)),
+    'clf__C': (0.1, 1, 10),
+    'clf__kernel': ('linear', 'rbf')
+}
+
+# Perform the grid search
+grid_search = GridSearchCV(pipeline, parameters, cv=5, n_jobs=-1, verbose=1)
+grid_search.fit(train_data['text'], train_labels['target'])
+
+print("Best parameters for SVM:", grid_search.best_params_)
+print("Best score for SVM:", grid_search.best_score_)
+
+# Test the model on the test data
+with open('waseem/waseemtest.txt', 'r', encoding='utf-8') as file:
+    lines = file.read().split('\n')
+    
+test_data = pd.DataFrame({'text': lines})
+test_labels = pd.read_csv('waseem/waseemtestGold.txt', header=None, names=['target
